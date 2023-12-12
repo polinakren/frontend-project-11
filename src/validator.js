@@ -4,8 +4,8 @@ const validate = (url, urlsList) => {
   const schema = yup
     .string()
     .required()
-    .url('Ссылка должна быть валидным URL')
-    .notOneOf(urlsList, 'RSS уже существует');
+    .url()
+    .notOneOf(urlsList);
 
   return schema.validate(url);
 };
