@@ -1,11 +1,12 @@
 export default (elements) => (path, value) => {
+  const updatedElements = { ...elements };
   if (path === 'errors' && value) {
-    elements.inputEl.classList.add('is-invalid');
-    elements.feedbackEl.textContent = value;
+    updatedElements.inputEl.classList.add('is-invalid');
+    updatedElements.feedbackEl.textContent = value;
   } else if (path === 'status' && value === 'valid') {
-    elements.inputEl.classList.remove('is-invalid');
-    elements.inputEl.focus();
-    elements.formEl.reset();
-    elements.feedbackEl.textContent = '';
+    updatedElements.inputEl.classList.remove('is-invalid');
+    updatedElements.inputEl.focus();
+    updatedElements.formEl.reset();
+    updatedElements.feedbackEl.textContent = '';
   }
 };

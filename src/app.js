@@ -9,6 +9,18 @@ import resources from './locales/index.js';
 
 const DEFAULT_LANGUAGE = 'ru';
 
+const getElements = () => ({
+  formEl: document.querySelector('.rss-form'),
+  inputEl: document.querySelector('#url-input'),
+  feedbackEl: document.querySelector('.feedback'),
+});
+
+const state = {
+  status: '',
+  errors: '',
+  urls: [],
+};
+
 export default () => {
   const elements = getElements();
   const i18nextInstance = i18next.createInstance();
@@ -50,16 +62,4 @@ export default () => {
           .then(() => console.log(state));
       });
     });
-};
-
-const getElements = () => ({
-  formEl: document.querySelector('.rss-form'),
-  inputEl: document.querySelector('#url-input'),
-  feedbackEl: document.querySelector('.feedback'),
-});
-
-const state = {
-  status: '',
-  errors: '',
-  urls: [],
 };
