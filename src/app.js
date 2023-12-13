@@ -6,26 +6,30 @@ import './style.scss';
 import validate from './validator.js';
 import render from './view.js';
 import resources from './locales/index.js';
+import getDataFromUrl from './getDataFromUrl.js';
+import parseDataFromUrl from './parseDataFromUrl.js';
 
 const DEFAULT_LANGUAGE = 'ru';
 
-const getElements = () => ({
+const elements = {
   formEl: document.querySelector('.rss-form'),
   inputEl: document.querySelector('#url-input'),
   feedbackEl: document.querySelector('.feedback'),
-});
+  feedsEl: document.querySelector('.feeds'),
+  postsEl: document.querySelector('.posts'),
+};
 
 const state = {
   status: '',
   errors: '',
-  urls: [],
+  feeds: [],
+  posts: [],
 };
 
-export default () => {
-  const elements = getElements();
+const initializeI18next = () => {
   const i18nextInstance = i18next.createInstance();
 
-  i18nextInstance
+  return i18nextInstance
     .init({
       lng: DEFAULT_LANGUAGE,
       debug: false,
@@ -34,32 +38,59 @@ export default () => {
     .then(() => {
       setLocale({
         mixed: {
-          default: i18nextInstance.t('validation.default'),
-          notOneOf: i18nextInstance.t('validation.notOneOf'),
+          default: 'validation.default',
+          notOneOf: 'validation.notOneOf',
         },
         string: {
-          required: i18nextInstance.t('validation.required'),
-          url: i18nextInstance.t('validation.invalidUrl'),
+          required: 'validation.required',
+          url: 'validation.invalidUrl',
         },
       });
 
-      const watchedState = onChange(state, render(elements));
-
-      elements.formEl.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const url = formData.get('url');
-        validate(url, state.urls)
-          .then(() => {
-            watchedState.errors = '';
-            watchedState.status = 'valid';
-            watchedState.urls.push(url);
-          })
-          .catch((error) => {
-            watchedState.errors = error.message;
-            watchedState.status = 'invalid';
-          })
-          .then(() => console.log(state));
-      });
+      return i18nextInstance;
     });
 };
+
+export default () => initializeI18next().then((i18nextInstance) => {
+  const watchedState = onChange(state, render(elements, i18nextInstance));
+
+  elements.formEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const url = formData.get('url');
+    const urlsArray = watchedState.feeds.map((feed) => feed.url);
+
+    validate(url, urlsArray)
+      .then(() => {
+        getDataFromUrl(url)
+          .then((data) => {
+            watchedState.feedback = 'validation.success';
+            watchedState.status = 'valid';
+            const { feeds, posts } = parseDataFromUrl(data, url);
+            watchedState.feeds.push(...feeds);
+            watchedState.posts.push(...posts);
+          })
+          .catch((error) => {
+            switch (error.name) {
+              case 'AxiosError':
+                watchedState.feedback = 'validation.connectionError';
+                break;
+              default:
+                watchedState.feedback = error.message;
+            }
+            watchedState.status = 'invalid';
+          });
+      })
+      .catch((error) => {
+        switch (error.name) {
+          case 'AxiosError':
+            watchedState.feedback = 'validation.connectionError';
+            break;
+          default:
+            watchedState.feedback = error.message;
+        }
+        watchedState.status = 'invalid';
+      });
+  });
+});
