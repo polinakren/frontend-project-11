@@ -2,6 +2,8 @@ import 'bootstrap';
 import onChange from 'on-change';
 import i18next from 'i18next';
 import { setLocale } from 'yup';
+import _ from 'lodash';
+
 import './style.scss';
 import validate from './validator.js';
 import render from './view.js';
@@ -51,8 +53,47 @@ const initializeI18next = () => {
     });
 };
 
+const getFeedsWithIds = (feeds, feedId) => feeds.map((feed) => ({ ...feed, feedId }));
+
+const getPostsWithIds = (posts, feedId) => posts.map((post) => (
+  { ...post, feedId, postid: _.uniqueId() }
+));
+
 export default () => initializeI18next().then((i18nextInstance) => {
   const watchedState = onChange(state, render(elements, i18nextInstance));
+
+  const checkForNewPosts = () => {
+    watchedState.feeds.forEach((feed) => {
+      getDataFromUrl(feed.url)
+        .then((data) => {
+          const { posts: newPosts } = parseDataFromUrl(data, feed.url);
+          const filteredNewPosts = newPosts.filter((post) => !watchedState.posts.some(
+            (existingPost) => existingPost.postLink === post.postLink,
+          ));
+          if (filteredNewPosts.length > 0) {
+            const newPostsWithIds = getPostsWithIds(
+              filteredNewPosts,
+              feed.feedId,
+            );
+            watchedState.posts.push(...newPostsWithIds);
+            render(elements, i18nextInstance);
+          }
+        })
+        .catch((error) => {
+          switch (error.name) {
+            case 'AxiosError':
+              watchedState.feedback = 'validation.connectionError';
+              break;
+            default:
+              watchedState.feedback = error.message;
+          }
+          watchedState.status = 'invalid';
+        });
+    });
+    setTimeout(checkForNewPosts, 5000);
+  };
+
+  checkForNewPosts();
 
   elements.formEl.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -68,8 +109,12 @@ export default () => initializeI18next().then((i18nextInstance) => {
             watchedState.feedback = 'validation.success';
             watchedState.status = 'valid';
             const { feeds, posts } = parseDataFromUrl(data, url);
-            watchedState.feeds.push(...feeds);
-            watchedState.posts.push(...posts);
+            const feedId = _.uniqueId();
+            const feedsWithIds = getFeedsWithIds(feeds, feedId);
+            const postsWithIds = getPostsWithIds(posts, feedId);
+
+            watchedState.feeds.push(...feedsWithIds);
+            watchedState.posts.push(...postsWithIds);
           })
           .catch((error) => {
             switch (error.name) {
