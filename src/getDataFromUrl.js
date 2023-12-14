@@ -1,9 +1,15 @@
 import axios from 'axios';
 
-export default (url) => axios
-  .get(
-    `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(
-      url,
-    )}`,
-  )
-  .then((response) => response.data.contents);
+const getURLForRequest = (url) => {
+  const newUrl = new URL('https://allorigins.hexlet.app/get');
+  newUrl.searchParams.append('disableCache', 'true');
+  newUrl.searchParams.append('url', url);
+  return newUrl;
+};
+
+export default (url) => {
+  const urlForRequest = getURLForRequest(url);
+  return axios
+    .get(urlForRequest)
+    .then((response) => response.data.contents);
+};

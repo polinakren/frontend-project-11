@@ -1,31 +1,47 @@
 import 'bootstrap';
+import { setLocale } from 'yup';
 import onChange from 'on-change';
 import i18next from 'i18next';
-import { setLocale } from 'yup';
 import _ from 'lodash';
 
 import './style.scss';
-import validate from './validator.js';
-import render from './view.js';
+import view from './view.js';
 import resources from './locales/index.js';
 import getDataFromUrl from './getDataFromUrl.js';
 import parseDataFromUrl from './parseDataFromUrl.js';
+import validate from './validator.js';
 
 const DEFAULT_LANGUAGE = 'ru';
 
 const elements = {
-  formEl: document.querySelector('.rss-form'),
-  inputEl: document.querySelector('#url-input'),
-  feedbackEl: document.querySelector('.feedback'),
-  feedsEl: document.querySelector('.feeds'),
-  postsEl: document.querySelector('.posts'),
+  formElement: document.querySelector('.rss-form'),
+  inputElement: document.querySelector('#url-input'),
+  feedbackElement: document.querySelector('.feedback'),
+  feedsElement: document.querySelector('.feeds'),
+  postsElement: document.querySelector('.posts'),
+  modalElement: document.getElementById('modal'),
 };
 
 const state = {
   status: '',
-  errors: '',
+  feedback: '',
   feeds: [],
   posts: [],
+  modalPostId: null,
+  viewedPostIds: [],
+};
+
+const setYupLocale = () => {
+  setLocale({
+    mixed: {
+      default: 'validation.default',
+      notOneOf: 'validation.notOneOf',
+    },
+    string: {
+      required: 'validation.required',
+      url: 'validation.invalidUrl',
+    },
+  });
 };
 
 const initializeI18next = () => {
@@ -38,64 +54,54 @@ const initializeI18next = () => {
       resources,
     })
     .then(() => {
-      setLocale({
-        mixed: {
-          default: 'validation.default',
-          notOneOf: 'validation.notOneOf',
-        },
-        string: {
-          required: 'validation.required',
-          url: 'validation.invalidUrl',
-        },
-      });
+      setYupLocale();
 
       return i18nextInstance;
     });
 };
 
-const getFeedsWithIds = (feeds, feedId) => feeds.map((feed) => ({ ...feed, feedId }));
+const setFeedId = (feed, feedId) => {
+  const updatedFeed = { ...feed };
+  updatedFeed.feedId = feedId;
+  return updatedFeed;
+};
 
-const getPostsWithIds = (posts, feedId) => posts.map((post) => (
-  { ...post, feedId, postid: _.uniqueId() }
-));
+const setPostsIds = (posts, feedId) => posts.map((post) => ({
+  ...post,
+  feedId,
+  postId: _.uniqueId(),
+}));
+
+const handleErrors = (error) => (error.name === 'AxiosError'
+  ? 'validation.connectionError'
+  : error.message);
+
+const checkForNewPosts = (watchedState) => {
+  const updatedState = { ...watchedState };
+  const promises = updatedState.feeds.map((feed) => getDataFromUrl(feed.url)
+    .then((data) => {
+      const { posts: currentPosts } = parseDataFromUrl(data, feed.url);
+      const newPosts = currentPosts.filter((post) => !updatedState.posts.some(
+        (existingPost) => existingPost.postLink === post.postLink,
+      ));
+      if (newPosts.length > 0) {
+        const newPostsWithIds = setPostsIds(newPosts, feed.feedId);
+        updatedState.posts.push(...newPostsWithIds);
+      }
+    })
+    .catch((error) => {
+      updatedState.status = 'invalid';
+      updatedState.feedback = handleErrors(error);
+    }));
+  Promise.all(promises).then(() => setTimeout(() => checkForNewPosts(updatedState), 5000));
+};
 
 export default () => initializeI18next().then((i18nextInstance) => {
-  const watchedState = onChange(state, render(elements, i18nextInstance));
+  const watchedState = onChange(state, view(elements, i18nextInstance, state));
 
-  const checkForNewPosts = () => {
-    watchedState.feeds.forEach((feed) => {
-      getDataFromUrl(feed.url)
-        .then((data) => {
-          const { posts: newPosts } = parseDataFromUrl(data, feed.url);
-          const filteredNewPosts = newPosts.filter((post) => !watchedState.posts.some(
-            (existingPost) => existingPost.postLink === post.postLink,
-          ));
-          if (filteredNewPosts.length > 0) {
-            const newPostsWithIds = getPostsWithIds(
-              filteredNewPosts,
-              feed.feedId,
-            );
-            watchedState.posts.push(...newPostsWithIds);
-            render(elements, i18nextInstance);
-          }
-        })
-        .catch((error) => {
-          switch (error.name) {
-            case 'AxiosError':
-              watchedState.feedback = 'validation.connectionError';
-              break;
-            default:
-              watchedState.feedback = error.message;
-          }
-          watchedState.status = 'invalid';
-        });
-    });
-    setTimeout(checkForNewPosts, 5000);
-  };
+  checkForNewPosts(watchedState);
 
-  checkForNewPosts();
-
-  elements.formEl.addEventListener('submit', (e) => {
+  elements.formElement.addEventListener('submit', (e) => {
     e.preventDefault();
 
     const formData = new FormData(e.target);
@@ -104,38 +110,34 @@ export default () => initializeI18next().then((i18nextInstance) => {
 
     validate(url, urlsArray)
       .then(() => {
+        watchedState.status = 'valid';
         getDataFromUrl(url)
           .then((data) => {
             watchedState.feedback = 'validation.success';
-            watchedState.status = 'valid';
-            const { feeds, posts } = parseDataFromUrl(data, url);
-            const feedId = _.uniqueId();
-            const feedsWithIds = getFeedsWithIds(feeds, feedId);
-            const postsWithIds = getPostsWithIds(posts, feedId);
+            watchedState.status = 'uploaded';
 
-            watchedState.feeds.push(...feedsWithIds);
+            const { feed, posts } = parseDataFromUrl(data, url);
+            const feedId = _.uniqueId();
+            const feedWithId = setFeedId(feed, feedId);
+            const postsWithIds = setPostsIds(posts, feedId);
+
+            watchedState.feeds.push(feedWithId);
             watchedState.posts.push(...postsWithIds);
           })
           .catch((error) => {
-            switch (error.name) {
-              case 'AxiosError':
-                watchedState.feedback = 'validation.connectionError';
-                break;
-              default:
-                watchedState.feedback = error.message;
-            }
             watchedState.status = 'invalid';
+            watchedState.feedback = handleErrors(error);
           });
       })
       .catch((error) => {
-        switch (error.name) {
-          case 'AxiosError':
-            watchedState.feedback = 'validation.connectionError';
-            break;
-          default:
-            watchedState.feedback = error.message;
-        }
         watchedState.status = 'invalid';
+        watchedState.feedback = handleErrors(error);
       });
+  });
+
+  elements.modalElement.addEventListener('show.bs.modal', (e) => {
+    const postId = e.relatedTarget.dataset.id;
+    watchedState.modalPostId = postId;
+    watchedState.viewedPostIds.push(postId);
   });
 });

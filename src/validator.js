@@ -1,6 +1,6 @@
 import * as yup from 'yup';
 
-const validate = (url, urlsList) => {
+export default (url, urlsList) => {
   const schema = yup
     .string()
     .required()
@@ -9,4 +9,3 @@ const validate = (url, urlsList) => {
 
   return schema.validate(url);
 };
-export default validate;

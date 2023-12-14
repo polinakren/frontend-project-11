@@ -13,6 +13,7 @@ export default {
       rss: {
         feeds: 'Feeds',
         posts: 'Posts',
+        button: 'View',
       },
     },
   },

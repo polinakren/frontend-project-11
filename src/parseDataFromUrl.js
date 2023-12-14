@@ -1,21 +1,15 @@
 export default (data, url) => {
   const parseXml = (xmlString) => {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlString, 'text/xml');
-    const parseError = doc.querySelector('parsererror');
+    const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+    const parseError = xmlDoc.querySelector('parsererror');
     if (parseError) {
       throw new Error('validation.invalidRss');
     }
-    return doc;
+    return xmlDoc;
   };
 
   const extractContent = (selector, element) => element.querySelector(selector).textContent;
-
-  const extractFeedInfo = (doc) => {
-    const feedTitle = extractContent('title', doc);
-    const feedDescription = extractContent('description', doc);
-    return { feedTitle, feedDescription };
-  };
 
   const extractPostInfo = (item) => ({
     postTitle: extractContent('title', item),
@@ -23,9 +17,15 @@ export default (data, url) => {
     postDescription: extractContent('description', item),
   });
 
-  const doc = parseXml(data);
-  const feeds = [{ url, ...extractFeedInfo(doc) }];
-  const posts = Array.from(doc.querySelectorAll('item')).map(extractPostInfo);
+  const xmlDocument = parseXml(data);
 
-  return { feeds, posts };
+  const feedTitle = xmlDocument.querySelector('title').textContent;
+  const feedDescription = xmlDocument.querySelector('description').textContent;
+
+  const postItems = xmlDocument.querySelectorAll('item');
+  const posts = Array.from(postItems).map(extractPostInfo);
+
+  const feed = { feedTitle, feedDescription, url };
+
+  return { feed, posts };
 };
