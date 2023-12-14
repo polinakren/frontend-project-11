@@ -32,5 +32,5 @@ make start
 
 ## ⌨️ Demo
 <div align="center">
-  <img alt="Main Image" width="100%" src="https://github.com/polinakren/frontend-project-11/raw/master/public/main.jpg">
+  <img alt="Main Image" width="100%" src="https://github.com/polinakren/frontend-project-11/raw/main/public/main.jpg">
 </div>
