@@ -27,7 +27,7 @@ const createCardElements = (container, i18nextInstance, title) => {
   const ulEl = createElement('ul', ['list-group', 'border-0', 'rounded-0']);
   cardElement.appendChild(ulEl);
 
-  container.appendChild(cardContainer);
+  container.replaceChildren(cardContainer);
 
   return ulEl;
 };
@@ -119,6 +119,12 @@ const renderNewPosts = (value, elements, i18n, cardTitle) => {
     postAElement.target = '_blank';
     postAElement.rel = 'noopener noreferrer';
     postLiElement.append(postAElement);
+
+    postAElement.addEventListener('click', () => {
+      postAElement.classList.remove('fw-bold');
+      postAElement.classList.add('fw-normal');
+      postAElement.classList.add('text-secondary');
+    });
 
     const buttonElement = createButton(element.postId, i18n);
 

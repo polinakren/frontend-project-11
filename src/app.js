@@ -12,6 +12,7 @@ import parseDataFromUrl from './parseDataFromUrl.js';
 import validate from './validator.js';
 
 const DEFAULT_LANGUAGE = 'ru';
+const DELAY = 5000;
 
 const elements = {
   formElement: document.querySelector('.rss-form'),
@@ -93,7 +94,7 @@ const checkForNewPosts = (watchedState) => {
       updatedState.status = 'invalid';
       updatedState.feedback = handleErrors(error);
     }));
-  Promise.all(promises).then(() => setTimeout(() => checkForNewPosts(updatedState), 5000));
+  Promise.all(promises).then(() => setTimeout(() => checkForNewPosts(updatedState), DELAY));
 };
 
 export default () => initializeI18next().then((i18nextInstance) => {

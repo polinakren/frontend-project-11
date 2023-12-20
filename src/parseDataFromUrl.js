@@ -4,7 +4,10 @@ export default (data, url) => {
     const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
     const parseError = xmlDoc.querySelector('parsererror');
     if (parseError) {
-      throw new Error('validation.invalidRss');
+      const error = new Error();
+      error.name = parseError.textContent;
+      error.message = 'validation.invalidRss';
+      throw error;
     }
     return xmlDoc;
   };
